@@ -1,0 +1,109 @@
+{
+  "name": "2-1 Форма запуска рассылки",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Запуск рассылки",
+        "formDescription": "Выберите целевую аудиторию",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "segment",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "all"
+                  },
+                  {
+                    "option": "new_users"
+                  },
+                  {
+                    "option": "vip_users"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a2870aec-38d6-4fbe-8221-ccab3fef7504",
+      "name": "On form submission",
+      "webhookId": "68d64e60-55a1-4f86-a8a7-86f190864ac4"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "kOdYQe7ArFG30ZdP",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/kOdYQe7ArFG30ZdP",
+          "cachedResultName": "2. Рассылка сообщений"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "segment": "={{ $json.segment }}"
+          },
+          "matchingColumns": [
+            "segment"
+          ],
+          "schema": [
+            {
+              "id": "segment",
+              "displayName": "segment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "99edfa5a-1c7b-42e0-bbcf-fe11df02e0fb",
+      "name": "Call '2. Рассылка сообщений'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Call '2. Рассылка сообщений'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "21cae558-1a03-4470-adcb-662b01c10370",
+  "meta": {
+    "instanceId": "763aa91d67b782b3406f877e258f83d8e4481b5e193e267cc175d206ecae642c"
+  },
+  "id": "8h8qYhQy8Er7fxvC",
+  "tags": []
+}

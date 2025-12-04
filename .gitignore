@@ -1,0 +1,31 @@
+# Environment variables (содержат токены!)
+.env
+
+# n8n data (персональные данные, credentials)
+n8n_data/
+.n8n/
+
+# PostgreSQL data
+postgres_data/
+
+# Claude Code settings
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker volumes
+volumes/

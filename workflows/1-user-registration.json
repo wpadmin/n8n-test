@@ -1,0 +1,334 @@
+{
+  "name": "1 Регистрация Юзеров",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "70c6abca-41a0-4283-a3ae-03da235a8def",
+      "name": "Telegram Trigger",
+      "webhookId": "ab294bdb-b973-43a3-be2c-ea36fb216e55",
+      "credentials": {
+        "telegramApi": {
+          "id": "h7XBYOdBOdCzCf6X",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3fb4e3a5-6ffd-4f1a-acc8-22b8fa12a48c",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/start",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "fdebb129-7101-43f3-8689-36c97a3fb167",
+      "name": "Filter на сообщ"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, chat_id, username FROM users WHERE chat_id = {{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5b669fd2-0bce-4baa-a37d-fe59143d8075",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "tagm7F4r6obhBUj3",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "users",
+          "mode": "list",
+          "cachedResultName": "users"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_active": false,
+            "chat_id": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+            "username": "={{ $('Telegram Trigger').item.json.message.from.username }}",
+            "first_name": "={{ $('Telegram Trigger').item.json.message.from.first_name }}",
+            "segment": "new"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "registered_at",
+              "displayName": "registered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_active",
+              "displayName": "is_active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "segment",
+              "displayName": "segment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        -96
+      ],
+      "id": "5043ab9c-c6f4-4650-84fb-29f945fde7bb",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "tagm7F4r6obhBUj3",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('Telegram Trigger').item.json.message.from.first_name }}! Ты уже зарегистрирован в системе.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1120,
+        128
+      ],
+      "id": "cdcc9f1f-3f18-4d98-a02d-0b810e7ae858",
+      "name": "Send a text message",
+      "webhookId": "32904f75-cf1c-49ab-bce6-3b11133befa3",
+      "credentials": {
+        "telegramApi": {
+          "id": "h7XBYOdBOdCzCf6X",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Добро пожаловать, {{ $('Telegram Trigger').item.json.message.from.first_name }}! Теперь будешь получать СПАМ\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        -96
+      ],
+      "id": "3bfb9930-7481-4d91-9b2e-4a901bf30273",
+      "name": "Send a text message1",
+      "webhookId": "dc931741-0414-4f4e-8c75-d4f15f56e971",
+      "credentials": {
+        "telegramApi": {
+          "id": "h7XBYOdBOdCzCf6X",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.id !== undefined ? 1 : 0 }}"
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "6cf45e7f-6a47-4afd-9654-39f0d5901b22",
+      "name": "Switch"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter на сообщ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter на сообщ": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9c2859ed-a8bd-4f9a-b371-a1f2f124fabf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "763aa91d67b782b3406f877e258f83d8e4481b5e193e267cc175d206ecae642c"
+  },
+  "id": "CfQxOK9OaFIZGaGu",
+  "tags": []
+}
