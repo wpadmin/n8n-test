@@ -30,12 +30,9 @@ NGROK_AUTHTOKEN=твой_ngrok_token
 docker compose up -d
 ```
 
-**Первый запуск:**
-```bash
-docker attach telegram-client
-# Введи код из SMS
-# Ctrl+P, Ctrl+Q для выхода без остановки
-```
+**Первый запуск (аутентификация в Telegram):**
+
+Просто закрой терминал после ввода кода - контейнер продолжит работать в фоне.
 
 ### 4. Открой n8n
 
