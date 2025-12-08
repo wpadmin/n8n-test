@@ -1,15 +1,29 @@
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
-import { NewMessage } from 'telegram/events';
 import * as fs from 'fs';
 import * as path from 'path';
-import input from 'input';
+import * as readline from 'readline';
 
 const SESSION_DIR = path.join(__dirname, '../sessions');
 
 // Создаём папку для сессий если её нет
 if (!fs.existsSync(SESSION_DIR)) {
   fs.mkdirSync(SESSION_DIR, { recursive: true });
+}
+
+// Функция для ввода с консоли
+function input(prompt: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
 }
 
 export class TelegramService {
@@ -66,9 +80,9 @@ export class TelegramService {
     console.log('Connecting to Telegram...');
     await this.client.start({
       phoneNumber: async () => this.phoneNumber,
-      password: async () => await input.text('Please enter your password: '),
-      phoneCode: async () => await input.text('Please enter the code you received: '),
-      onError: (err) => console.log(err),
+      password: async () => await input('Please enter your password: '),
+      phoneCode: async () => await input('Please enter the code you received: '),
+      onError: (err: any) => console.log(err),
     });
 
     console.log('Successfully connected to Telegram!');

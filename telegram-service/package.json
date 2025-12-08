@@ -15,8 +15,7 @@
     "fastify": "^4.28.0",
     "@fastify/cors": "^9.0.1",
     "telegram": "^2.19.10",
-    "dotenv": "^16.3.1",
-    "input": "^1.0.1"
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

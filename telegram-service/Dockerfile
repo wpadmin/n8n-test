@@ -1,14 +1,17 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install
 
 COPY tsconfig.json ./
 COPY src ./src
 
 RUN npm run build
+
+# Удалить devDependencies после сборки
+RUN npm prune --production
 
 EXPOSE 3000
 
