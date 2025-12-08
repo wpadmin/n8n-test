@@ -1,71 +1,63 @@
 # Telegram Client на n8n
 
-Telegram клиент с автоматическими рассылками и проактивными сообщениями через Client API.
+Telegram клиент с проактивными рассылками через Client API.
 
-## Как запустить
+## Запуск
 
-### 1. Получите Telegram API credentials
+### 1. Получи API credentials
 
-1. Перейдите на [my.telegram.org](https://my.telegram.org)
-2. Войдите с помощью номера телефона
-3. Перейдите в **API development tools**
-4. Создайте приложение и получите:
-   - **API ID** (число)
-   - **API Hash** (строка)
+1. Зайди на [my.telegram.org](https://my.telegram.org)
+2. API development tools → Создай приложение
+3. Скопируй **API ID** и **API Hash**
 
-### 2. Настройте проект
+### 2. Настрой .env
 
-1. Скопируйте файл `.env.example` в `.env`
-2. Заполните данные Telegram:
-   ```env
-   TELEGRAM_API_ID=ваш_api_id
-   TELEGRAM_API_HASH=ваш_api_hash
-   TELEGRAM_PHONE=+79001234567
-   ```
-3. Получите токен ngrok на [ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
-4. Вставьте токен ngrok в `.env`
+```bash
+cp .env.example .env
+```
 
-### 3. Запустите проект
+Заполни:
+```env
+TELEGRAM_API_ID=твой_api_id
+TELEGRAM_API_HASH=твой_api_hash
+TELEGRAM_PHONE=+79001234567
+NGROK_AUTHTOKEN=твой_ngrok_token
+```
+
+### 3. Запусти
 
 ```bash
 docker compose up -d
 ```
 
-**При первом запуске:**
-- Сервис попросит ввести код из SMS
-- Подключитесь к контейнеру: `docker attach telegram-client`
-- Введите код из Telegram
-- Сессия сохранится автоматически
+**Первый запуск:**
+```bash
+docker attach telegram-client
+# Введи код из SMS
+# Ctrl+P, Ctrl+Q для выхода без остановки
+```
 
-### 4. Откройте n8n
+### 4. Открой n8n
 
-Перейдите по адресу: [http://localhost:5678](http://localhost:5678)
+http://localhost:5678 (admin / admin)
 
-**Логин:** admin
-**Пароль:** admin
+## API микросервиса
 
-### 5. Настройте workflows
+`http://localhost:3000`:
 
-1. В n8n нажмите **Settings** → **Import from File**
-2. Загрузите файлы из папки `workflows/`
-3. В workflows замените Telegram ноды на **HTTP Request** ноды
-4. Укажите URL: `http://telegram-client:3000`
-
-## API endpoints
-
-Telegram сервис доступен на `http://localhost:3000`:
-
-- `GET /status` - статус подключения
 - `GET /dialogs` - список чатов
-- `GET /chat/:chatId/members` - участники чата
+- `GET /chat/:id/members` - участники чата
 - `POST /send` - отправить сообщение
 
-## Остановка проекта
+**Пример:**
+```bash
+curl -X POST http://localhost:3000/send \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "username", "message": "Hello"}'
+```
+
+## Остановка
 
 ```bash
 docker compose down
 ```
-
----
-
-Подробная техническая документация в файле `Диаграмма n8n.drawio.pdf`
