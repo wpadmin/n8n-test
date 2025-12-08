@@ -29,9 +29,6 @@ services:
       DB_POSTGRESDB_USER: n8n
       DB_POSTGRESDB_PASSWORD: n8n
 
-      # Telegram Bot Token
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-
       # Базовая аутентификация
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}

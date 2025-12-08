@@ -1,0 +1,117 @@
+{
+  "name": "Client API: Рассылка по чату",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "manual-trigger",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "url": "http://telegram-client:3000/chat/{{ $json.chatId }}/members",
+        "method": "GET",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 0],
+      "id": "get-members",
+      "name": "Получить участников чата"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [400, 0],
+      "id": "split-batches",
+      "name": "Батчи по 20"
+    },
+    {
+      "parameters": {
+        "url": "http://telegram-client:3000/send",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"userId\": $json.username, \"message\": \"Привет! Это проактивное сообщение\" } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [600, 0],
+      "id": "send-message",
+      "name": "Отправить сообщение"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [800, 0],
+      "id": "wait-node",
+      "name": "Пауза 1 сек"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "messages",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $json.id }}",
+            "message_text": "Привет! Это проактивное сообщение",
+            "status": "sent"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1000, 0],
+      "id": "log-message",
+      "name": "Логировать в БД",
+      "credentials": {
+        "postgres": {
+          "id": "postgres-creds",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Получить участников чата", "type": "main", "index": 0}]]
+    },
+    "Получить участников чата": {
+      "main": [[{"node": "Батчи по 20", "type": "main", "index": 0}]]
+    },
+    "Батчи по 20": {
+      "main": [[{"node": "Отправить сообщение", "type": "main", "index": 0}]]
+    },
+    "Отправить сообщение": {
+      "main": [[{"node": "Пауза 1 сек", "type": "main", "index": 0}]]
+    },
+    "Пауза 1 сек": {
+      "main": [[{"node": "Логировать в БД", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

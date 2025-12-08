@@ -41,6 +41,13 @@ docker attach telegram-client
 
 http://localhost:5678 (admin / admin)
 
+### 5. Импортируй workflows
+
+Импортируй файлы из `workflows/`:
+- `client-api-get-dialogs.json` - получить список чатов
+- `client-api-send-message.json` - отправить сообщение через webhook
+- `client-api-broadcast.json` - рассылка участникам чата
+
 ## API микросервиса
 
 `http://localhost:3000`:
