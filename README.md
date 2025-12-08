@@ -1,19 +1,27 @@
-# Telegram Bot на n8n
+# Telegram Client на n8n
 
-Telegram бот с автоматическими рассылками и уведомлениями.
+Telegram клиент с автоматическими рассылками и проактивными сообщениями через Client API.
 
 ## Как запустить
 
-### 1. Создайте бота в Telegram
+### 1. Получите Telegram API credentials
 
-1. Найдите [@BotFather](https://t.me/BotFather) в Telegram
-2. Напишите `/newbot` и следуйте инструкциям
-3. Скопируйте полученный токен
+1. Перейдите на [my.telegram.org](https://my.telegram.org)
+2. Войдите с помощью номера телефона
+3. Перейдите в **API development tools**
+4. Создайте приложение и получите:
+   - **API ID** (число)
+   - **API Hash** (строка)
 
-### 2. Настрой проект
+### 2. Настройте проект
 
 1. Скопируйте файл `.env.example` в `.env`
-2. Вставьте свой токен бота в `.env`
+2. Заполните данные Telegram:
+   ```env
+   TELEGRAM_API_ID=ваш_api_id
+   TELEGRAM_API_HASH=ваш_api_hash
+   TELEGRAM_PHONE=+79001234567
+   ```
 3. Получите токен ngrok на [ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
 4. Вставьте токен ngrok в `.env`
 
@@ -23,50 +31,40 @@ Telegram бот с автоматическими рассылками и уве
 docker compose up -d
 ```
 
+**При первом запуске:**
+- Сервис попросит ввести код из SMS
+- Подключитесь к контейнеру: `docker attach telegram-client`
+- Введите код из Telegram
+- Сессия сохранится автоматически
+
 ### 4. Откройте n8n
 
-Перейди по адресу: [http://localhost:5678](http://localhost:5678)
+Перейдите по адресу: [http://localhost:5678](http://localhost:5678)
 
 **Логин:** admin
 **Пароль:** admin
 
-### 5. Импортируйте workflows
+### 5. Настройте workflows
 
-1. В n8n нажмите **Settings** (шестерёнка справа вверху)
-2. Выберите **Import from File**
-3. Загрузите все файлы из папки `workflows/`
-4. В каждом workflow:
-   - Откройте ноду Telegram
-   - Нажмите **Credentials** → **Create New**
-   - Вставьте свой токен бота
-   - Сохраните
+1. В n8n нажмите **Settings** → **Import from File**
+2. Загрузите файлы из папки `workflows/`
+3. В workflows замените Telegram ноды на **HTTP Request** ноды
+4. Укажите URL: `http://telegram-client:3000`
 
-## Как пользоваться
+## API endpoints
 
-### Регистрация пользователей
+Telegram сервис доступен на `http://localhost:3000`:
 
-1. Напишите боту `/start` в Telegram
-2. Бот зарегистрирует тебя и ответит приветствием
+- `GET /status` - статус подключения
+- `GET /dialogs` - список чатов
+- `GET /chat/:chatId/members` - участники чата
+- `POST /send` - отправить сообщение
 
-### Запуск рассылки
-
-1. В n8n откройте workflow **2-forma-zapuska-rassylki**
-2. Нажмите на ноду **Form Trigger**
-3. Скопируйте **Test URL** и откройте в браузере
-4. Выберите аудиторию и запустите
-5. Рассылка запустится автоматически
-
-### Остановка проекта
+## Остановка проекта
 
 ```bash
 docker compose down
 ```
-
-## Структура базы данных
-
-**users** - зарегистрированные пользователи
-**messages** - история отправленных сообщений
-**message_queue** - очередь с повторными попытками
 
 ---
 

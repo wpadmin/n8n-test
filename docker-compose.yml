@@ -50,6 +50,22 @@ services:
       postgres:
         condition: service_healthy
 
+  telegram-client:
+    build: ./telegram-service
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_PHONE: ${TELEGRAM_PHONE}
+      PORT: 3000
+      HOST: 0.0.0.0
+    volumes:
+      - telegram_sessions:/app/sessions
+    stdin_open: true
+    tty: true
+
   ngrok:
     image: ngrok/ngrok:latest
     restart: unless-stopped
@@ -66,3 +82,4 @@ services:
 volumes:
   postgres_data:
   n8n_data:
+  telegram_sessions:
