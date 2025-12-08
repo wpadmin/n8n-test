@@ -3,6 +3,7 @@
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "POST",
         "path": "send-telegram",
         "options": {},
         "responseMode": "lastNode"
@@ -20,7 +21,7 @@
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"userId\": $json.userId, \"message\": $json.message } }}",
+        "jsonBody": "={{ { \"userId\": $json.body.userId, \"message\": $json.body.message } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -28,25 +29,11 @@
       "position": [200, 0],
       "id": "send-to-telegram",
       "name": "Отправить в Telegram"
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { \"success\": true, \"messageId\": $json.messageId } }}"
-      },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [400, 0],
-      "id": "respond",
-      "name": "Respond to Webhook"
     }
   ],
   "connections": {
     "Webhook": {
       "main": [[{"node": "Отправить в Telegram", "type": "main", "index": 0}]]
-    },
-    "Отправить в Telegram": {
-      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     }
   },
   "active": false,
