@@ -178,6 +178,46 @@ export class TelegramService {
   }
 
   /**
+   * Получить комментарии к посту в канале
+   */
+  async getPostComments(channelId: string, postId: number, limit: number = 100) {
+    if (!this.client) throw new Error('Client not initialized');
+
+    try {
+      const { Api } = require('telegram');
+
+      const result = await this.client.invoke(
+        new Api.messages.GetReplies({
+          peer: channelId,
+          msgId: postId,
+          offsetId: 0,
+          offsetDate: 0,
+          addOffset: 0,
+          limit: limit,
+          maxId: 0,
+          minId: 0,
+          hash: BigInt(0),
+        })
+      );
+
+      if (!result.messages) {
+        return [];
+      }
+
+      return result.messages.map((msg: any) => ({
+        id: msg.id,
+        message: msg.message,
+        senderId: msg.fromId?.userId?.toString() || msg.peerId?.userId?.toString(),
+        date: msg.date,
+        senderUsername: msg.from?.username,
+        senderFirstName: msg.from?.firstName,
+      }));
+    } catch (error: any) {
+      throw new Error(`Failed to get post comments: ${error.message}`);
+    }
+  }
+
+  /**
    * Отключиться
    */
   async disconnect(): Promise<void> {

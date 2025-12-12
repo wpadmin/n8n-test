@@ -1,0 +1,233 @@
+{
+  "name": "Парсинг комментариев канала",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "schedule-trigger",
+      "name": "Каждые 5 минут"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT setting_value FROM bot_settings WHERE setting_key = 'target_channel_id'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [200, 0],
+      "id": "get-channel-id",
+      "name": "Получить ID канала"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT setting_value FROM bot_settings WHERE setting_key = 'target_post_id'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [400, 0],
+      "id": "get-post-id",
+      "name": "Получить ID поста"
+    },
+    {
+      "parameters": {
+        "url": "=http://telegram-client:3000/channel/{{ $('Получить ID канала').item.json.setting_value }}/post/{{ $('Получить ID поста').item.json.setting_value }}/comments",
+        "method": "GET",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [600, 0],
+      "id": "get-comments",
+      "name": "Получить комментарии"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Извлекаем комментарии из ответа\nconst response = $input.first().json;\nconst comments = response.comments || [];\n\n// Фильтруем ботов и пустые сообщения\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: comment.senderId,\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: response.channelId,\n    postId: response.postId\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 0],
+      "id": "process-comments",
+      "name": "Обработать комментарии"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT \n  uc.user_chat_id,\n  uc.last_contacted_at,\n  bs.setting_value::integer as cooldown_hours\nFROM user_contacts uc\nCROSS JOIN bot_settings bs\nWHERE uc.user_chat_id = {{ $json.senderId }}\n  AND uc.channel_id = {{ $json.channelId }}\n  AND uc.post_id = {{ $json.postId }}\n  AND bs.setting_key = 'contact_cooldown_hours'\n  AND uc.last_contacted_at > NOW() - INTERVAL '1 hour' * bs.setting_value::integer",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1000, 0],
+      "id": "check-cooldown",
+      "name": "Проверить антиспам"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 0],
+      "id": "filter-cooldown",
+      "name": "Можно писать?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1400, -100],
+      "id": "get-templates",
+      "name": "Получить шаблоны"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "greeting",
+              "name": "greeting",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'greeting_template')?.json.setting_value }}",
+              "type": "string"
+            },
+            {
+              "id": "link",
+              "name": "link",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'registration_link')?.json.setting_value }}",
+              "type": "string"
+            },
+            {
+              "id": "cta",
+              "name": "cta",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'cta_template')?.json.setting_value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, -100],
+      "id": "prepare-message",
+      "name": "Подготовить сообщение"
+    },
+    {
+      "parameters": {
+        "url": "http://telegram-client:3000/send",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"userId\": $('Обработать комментарии').item.json.senderId,\n  \"message\": $json.greeting + \"\\n\\n\" + $json.link + \"\\n\\n\" + $json.cta\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1800, -100],
+      "id": "send-message",
+      "name": "Отправить сообщение"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ({{ $('Обработать комментарии').item.json.senderId }}, {{ $('Обработать комментарии').item.json.channelId }}, {{ $('Обработать комментарии').item.json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2000, -100],
+      "id": "update-contact",
+      "name": "Обновить контакт"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2200, -100],
+      "id": "wait-node",
+      "name": "Пауза 1 сек"
+    }
+  ],
+  "connections": {
+    "Каждые 5 минут": {
+      "main": [[{"node": "Получить ID канала", "type": "main", "index": 0}]]
+    },
+    "Получить ID канала": {
+      "main": [[{"node": "Получить ID поста", "type": "main", "index": 0}]]
+    },
+    "Получить ID поста": {
+      "main": [[{"node": "Получить комментарии", "type": "main", "index": 0}]]
+    },
+    "Получить комментарии": {
+      "main": [[{"node": "Обработать комментарии", "type": "main", "index": 0}]]
+    },
+    "Обработать комментарии": {
+      "main": [[{"node": "Проверить антиспам", "type": "main", "index": 0}]]
+    },
+    "Проверить антиспам": {
+      "main": [[{"node": "Можно писать?", "type": "main", "index": 0}]]
+    },
+    "Можно писать?": {
+      "main": [
+        [{"node": "Получить шаблоны", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Получить шаблоны": {
+      "main": [[{"node": "Подготовить сообщение", "type": "main", "index": 0}]]
+    },
+    "Подготовить сообщение": {
+      "main": [[{"node": "Отправить сообщение", "type": "main", "index": 0}]]
+    },
+    "Отправить сообщение": {
+      "main": [[{"node": "Обновить контакт", "type": "main", "index": 0}]]
+    },
+    "Обновить контакт": {
+      "main": [[{"node": "Пауза 1 сек", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

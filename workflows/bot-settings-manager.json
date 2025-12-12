@@ -1,0 +1,116 @@
+{
+  "name": "Управление настройками бота",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "manual-trigger",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "channel_id",
+              "name": "target_channel_id",
+              "value": "@kira_news1",
+              "type": "string"
+            },
+            {
+              "id": "post_id",
+              "name": "target_post_id",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "greeting",
+              "name": "greeting_template",
+              "value": "Привет! 👋 Спасибо за комментарий!",
+              "type": "string"
+            },
+            {
+              "id": "link",
+              "name": "registration_link",
+              "value": "https://example.com/register",
+              "type": "string"
+            },
+            {
+              "id": "cta",
+              "name": "cta_template",
+              "value": "Какой у вас запрос на курс?",
+              "type": "string"
+            },
+            {
+              "id": "cooldown",
+              "name": "contact_cooldown_hours",
+              "value": "24",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, 0],
+      "id": "set-settings",
+      "name": "Задать настройки"
+    },
+    {
+      "parameters": {
+        "jsCode": "const settings = $input.first().json;\n\nreturn Object.entries(settings).map(([key, value]) => ({\n  json: {\n    setting_key: key,\n    setting_value: value.toString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0],
+      "id": "format-settings",
+      "name": "Форматировать"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO bot_settings (setting_key, setting_value) \nVALUES ('{{ $json.setting_key }}', '{{ $json.setting_value }}')\nON CONFLICT (setting_key) \nDO UPDATE SET setting_value = '{{ $json.setting_value }}', updated_at = NOW()",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [600, 0],
+      "id": "save-settings",
+      "name": "Сохранить в БД"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM bot_settings ORDER BY setting_key",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [800, 0],
+      "id": "verify-settings",
+      "name": "Проверить сохранение"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Задать настройки", "type": "main", "index": 0}]]
+    },
+    "Задать настройки": {
+      "main": [[{"node": "Форматировать", "type": "main", "index": 0}]]
+    },
+    "Форматировать": {
+      "main": [[{"node": "Сохранить в БД", "type": "main", "index": 0}]]
+    },
+    "Сохранить в БД": {
+      "main": [[{"node": "Проверить сохранение", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

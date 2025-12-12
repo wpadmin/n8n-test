@@ -96,6 +96,33 @@ fastify.get<{
   }
 });
 
+// Получить комментарии к посту в канале
+fastify.get<{
+  Params: { channelId: string; postId: string };
+  Querystring: { limit?: string };
+}>('/channel/:channelId/post/:postId/comments', async (request, reply) => {
+  try {
+    const { channelId, postId } = request.params;
+    const limit = request.query.limit ? parseInt(request.query.limit) : 100;
+
+    const postIdNum = parseInt(postId);
+    if (isNaN(postIdNum)) {
+      reply.code(400).send({ error: 'postId must be a number' });
+      return;
+    }
+
+    const comments = await telegramService.getPostComments(channelId, postIdNum, limit);
+    return {
+      channelId,
+      postId: postIdNum,
+      count: comments.length,
+      comments
+    };
+  } catch (error: any) {
+    reply.code(500).send({ error: error.message });
+  }
+});
+
 // Отправить сообщение
 fastify.post<{
   Body: { userId: string; message: string };
