@@ -66,7 +66,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: parseInt(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: response.channelId,\n    postId: parseInt(response.postId)\n  }\n}));"
+        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: String(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: String(response.channelId),\n    postId: Number(response.postId)\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -117,7 +117,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
+        "query": "SELECT setting_key, setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -134,7 +134,7 @@
               "id": "senderId",
               "name": "senderId",
               "value": "={{ $('Обработать комментарии').item.json.senderId }}",
-              "type": "number"
+              "type": "string"
             },
             {
               "id": "channelId",
