@@ -20,25 +20,13 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT setting_value FROM bot_settings WHERE setting_key = 'target_channel_id'",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [200, 0],
-      "id": "get-channel-id",
-      "name": "Получить ID канала"
-    },
-    {
-      "parameters": {
-        "url": "=http://telegram-client:3000/channel/{{ $('Получить ID канала').item.json.setting_value }}/posts?limit=10",
+        "url": "http://telegram-client:3000/channel/@kira_news1/posts?limit=10",
         "method": "GET",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [400, 0],
+      "position": [200, 0],
       "id": "get-posts",
       "name": "Получить посты с комментариями"
     },
@@ -217,17 +205,6 @@
   ],
   "connections": {
     "Каждые 5 минут": {
-      "main": [
-        [
-          {
-            "node": "Получить ID канала",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Получить ID канала": {
       "main": [
         [
           {
