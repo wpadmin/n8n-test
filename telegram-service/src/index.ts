@@ -96,6 +96,26 @@ fastify.get<{
   }
 });
 
+// Получить последние посты канала с комментариями
+fastify.get<{
+  Params: { channelId: string };
+  Querystring: { limit?: string };
+}>('/channel/:channelId/posts', async (request, reply) => {
+  try {
+    const { channelId } = request.params;
+    const limit = request.query.limit ? parseInt(request.query.limit) : 20;
+
+    const posts = await telegramService.getChannelPostsWithComments(channelId, limit);
+    return {
+      channelId,
+      count: posts.length,
+      posts
+    };
+  } catch (error: any) {
+    reply.code(500).send({ error: error.message });
+  }
+});
+
 // Получить комментарии к посту в канале
 fastify.get<{
   Params: { channelId: string; postId: string };

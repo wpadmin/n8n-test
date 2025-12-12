@@ -48,21 +48,25 @@ http://localhost:5678 (admin / admin)
 - `client-api-broadcast.json` - рассылка участникам чата
 
 **Для работы с комментариями:**
-- `bot-settings-manager.json` - управление настройками (шаблоны, ID канала/поста, cooldown)
-- `channel-comments-parser.json` - парсинг комментариев и отправка сообщений с антиспамом
+- `bot-settings-manager.json` - управление настройками (шаблоны, ID канала, cooldown)
+- `channel-comments-parser.json` - парсинг комментариев конкретного поста
+- `channel-auto-parser.json` - автопарсинг всех постов канала (рекомендуется)
 
 ### 6. Настрой бота
 
 1. Открой workflow **"Управление настройками бота"**
 2. В ноде **"Задать настройки"** укажи:
    - `target_channel_id` - ID или username канала (@kira_news1)
-   - `target_post_id` - ID поста для отслеживания комментариев
    - `greeting_template` - текст приветствия
    - `registration_link` - ссылка на регистрацию
    - `cta_template` - призыв к действию
    - `contact_cooldown_hours` - период повторной отправки (часы)
 3. Запусти workflow - настройки сохранятся в БД
-4. Активируй workflow **"Парсинг комментариев канала"** (запускается каждые 5 мин)
+4. Активируй workflow **"Автопарсинг всего канала"** (запускается каждые 5 мин)
+
+**Варианты использования:**
+- `channel-auto-parser.json` - автоматически парсит все посты с комментариями (рекомендуется)
+- `channel-comments-parser.json` - парсит только один конкретный пост (нужно указать `target_post_id` в настройках)
 
 ## API микросервиса
 
@@ -74,16 +78,21 @@ http://localhost:5678 (admin / admin)
 - `POST /send` - отправить сообщение
 
 **Комментарии:**
-- `GET /channel/:channelId/post/:postId/comments` - комментарии к посту
+- `GET /channel/:channelId/posts` - посты канала с комментариями
+- `GET /channel/:channelId/post/:postId/comments` - комментарии к конкретному посту
 
 **Примеры:**
+
 ```bash
 # Отправить сообщение
 curl -X POST http://localhost:3000/send \
   -H "Content-Type: application/json" \
   -d '{"userId": "username", "message": "Hello"}'
 
-# Получить комментарии
+# Получить посты канала с комментариями
+curl http://localhost:3000/channel/@kira_news1/posts
+
+# Получить комментарии к конкретному посту
 curl http://localhost:3000/channel/@kira_news1/post/123/comments
 ```
 

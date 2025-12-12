@@ -178,6 +178,32 @@ export class TelegramService {
   }
 
   /**
+   * Получить последние посты канала с включенными комментариями
+   */
+  async getChannelPostsWithComments(channelId: string, limit: number = 20) {
+    if (!this.client) throw new Error('Client not initialized');
+
+    try {
+      const { Api } = require('telegram');
+      const messages = await this.client.getMessages(channelId, { limit });
+
+      // Фильтруем только посты с включенными комментариями
+      const postsWithComments = messages
+        .filter((msg: any) => msg.replies && msg.replies.replies > 0)
+        .map((msg: any) => ({
+          id: msg.id,
+          message: msg.message,
+          date: msg.date,
+          commentsCount: msg.replies?.replies || 0,
+        }));
+
+      return postsWithComments;
+    } catch (error: any) {
+      throw new Error(`Failed to get channel posts: ${error.message}`);
+    }
+  }
+
+  /**
    * Получить комментарии к посту в канале
    */
   async getPostComments(channelId: string, postId: number, limit: number = 100) {
