@@ -65,46 +65,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT \n  uc.user_chat_id,\n  uc.last_contacted_at,\n  bs.setting_value::integer as cooldown_hours\nFROM user_contacts uc\nCROSS JOIN bot_settings bs\nWHERE uc.user_chat_id = {{ $json.senderId }}\n  AND uc.channel_id = hashtext('{{ $json.channelId }}')\n  AND uc.post_id = {{ $json.postId }}\n  AND bs.setting_key = 'contact_cooldown_hours'\n  AND uc.last_contacted_at > NOW() - INTERVAL '1 hour' * bs.setting_value::integer",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [1200, 0],
-      "id": "check-cooldown",
-      "name": "Проверить антиспам"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": false,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.length }}",
-              "rightValue": "0",
-              "operator": {
-                "type": "number",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1400, 0],
-      "id": "filter-cooldown",
-      "name": "Можно писать?"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "SELECT setting_key, setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
         "options": {}
       },
