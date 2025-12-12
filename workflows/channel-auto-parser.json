@@ -32,13 +32,55 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: String(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: String(response.channelId),\n    postId: Number(response.postId)\n  }\n}));"
+        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\n// Получаем первые 3 комментария чтобы не спамить\nconst limitedComments = validComments.slice(0, 3);\n\nreturn limitedComments.map(comment => ({\n  json: {\n    senderId: String(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: String(response.channelId),\n    postId: Number(response.postId)\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1000, 0],
       "id": "process-comments",
       "name": "Обработать комментарии"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT user_chat_id FROM user_contacts WHERE user_chat_id = '{{ $json.senderId }}'::bigint AND channel_id = hashtext('{{ $json.channelId }}')::bigint AND post_id = {{ $json.postId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1200, 0],
+      "id": "check-sent",
+      "name": "Проверить отправлено"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.user_chat_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1400, 0],
+      "id": "filter-new",
+      "name": "Только новые"
     },
     {
       "parameters": {
@@ -168,11 +210,34 @@
       "main": [
         [
           {
-            "node": "Получить шаблоны",
+            "node": "Проверить отправлено",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Проверить отправлено": {
+      "main": [
+        [
+          {
+            "node": "Только новые",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Только новые": {
+      "main": [
+        [
+          {
+            "node": "Получить шаблоны",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Получить шаблоны": {
