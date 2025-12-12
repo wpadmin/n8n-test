@@ -66,7 +66,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: comment.senderId,\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: response.channelId,\n    postId: response.postId\n  }\n}));"
+        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\nreturn validComments.map(comment => ({\n  json: {\n    senderId: parseInt(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: response.channelId,\n    postId: parseInt(response.postId)\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -134,7 +134,7 @@
               "id": "senderId",
               "name": "senderId",
               "value": "={{ $('Обработать комментарии').item.json.senderId }}",
-              "type": "string"
+              "type": "number"
             },
             {
               "id": "channelId",
@@ -146,7 +146,7 @@
               "id": "postId",
               "name": "postId",
               "value": "={{ $('Обработать комментарии').item.json.postId }}",
-              "type": "string"
+              "type": "number"
             },
             {
               "id": "greeting",
