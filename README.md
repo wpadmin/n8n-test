@@ -68,16 +68,17 @@ docker exec -i test-postgres-1 psql -U n8n -d n8n < sql/init.sql
 3. Привяжи PostgreSQL credentials ко всем нодам с БД
 4. Save
 
-**Настрой шаблоны сообщений в БД:**
-```bash
-docker exec -i test-postgres-1 psql -U n8n -d n8n
-```
-```sql
-UPDATE bot_settings SET setting_value = 'Привет! 👋' WHERE setting_key = 'greeting_template';
-UPDATE bot_settings SET setting_value = 'https://example.com/register' WHERE setting_key = 'registration_link';
-UPDATE bot_settings SET setting_value = 'Какой у вас запрос на курс?' WHERE setting_key = 'cta_template';
-\q
-```
+**Настрой шаблоны сообщений:**
+
+1. Импортируй `workflows/bot-settings-manager.json`
+2. Открой workflow "Управление настройками бота"
+3. В ноде "Задать настройки" измени значения:
+   - `greeting_template` - текст приветствия
+   - `registration_link` - ссылка на регистрацию
+   - `cta_template` - призыв к действию
+   - `contact_cooldown_hours` - часы между повторными сообщениями
+4. Нажми "Execute Workflow" - настройки сохранятся в БД
+5. Готово! Теперь бот будет использовать эти шаблоны
 
 ### 6. Активируй workflow
 
