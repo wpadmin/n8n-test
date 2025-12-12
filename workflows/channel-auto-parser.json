@@ -131,6 +131,24 @@
         "assignments": {
           "assignments": [
             {
+              "id": "senderId",
+              "name": "senderId",
+              "value": "={{ $('Обработать комментарии').item.json.senderId }}",
+              "type": "string"
+            },
+            {
+              "id": "channelId",
+              "name": "channelId",
+              "value": "={{ $('Обработать комментарии').item.json.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "postId",
+              "name": "postId",
+              "value": "={{ $('Обработать комментарии').item.json.postId }}",
+              "type": "string"
+            },
+            {
               "id": "greeting",
               "name": "greeting",
               "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'greeting_template')?.json.setting_value }}",
@@ -164,7 +182,7 @@
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"userId\": $('Обработать комментарии').item.json.senderId,\n  \"message\": $json.greeting + \"\\n\\n\" + $json.link + \"\\n\\n\" + $json.cta\n} }}",
+        "jsonBody": "={{ {\n  \"userId\": $json.senderId,\n  \"message\": $json.greeting + \"\\n\\n\" + $json.link + \"\\n\\n\" + $json.cta\n} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -176,7 +194,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ({{ $('Обработать комментарии').item.json.senderId }}, hashtext('{{ $('Обработать комментарии').item.json.channelId }}'), {{ $('Обработать комментарии').item.json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
+        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ({{ $json.senderId }}, hashtext('{{ $json.channelId }}'), {{ $json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -257,34 +275,11 @@
       "main": [
         [
           {
-            "node": "Проверить антиспам",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Проверить антиспам": {
-      "main": [
-        [
-          {
-            "node": "Можно писать?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Можно писать?": {
-      "main": [
-        [
-          {
             "node": "Получить шаблоны",
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Получить шаблоны": {
