@@ -1,103 +1,130 @@
-# Telegram Client на n8n
+# Telegram Client Bot для автоматических ответов на комментарии
 
-Telegram клиент с проактивными рассылками через Client API.
+Бот автоматически отправляет сообщения пользователям, которые оставили комментарии под постами в канале.
 
-## Запуск
+## Быстрый старт
 
-### 1. Получи API credentials
+### 1. Получи Telegram API credentials
 
-1. Зайди на [my.telegram.org](https://my.telegram.org)
+1. Открой https://my.telegram.org
 2. API development tools → Создай приложение
-3. Скопируй **API ID** и **API Hash**
+3. Скопируй API ID и API Hash
 
-### 2. Настрой .env
+### 2. Настрой окружение
 
 ```bash
 cp .env.example .env
 ```
 
-Заполни:
+Заполни `.env`:
 ```env
 TELEGRAM_API_ID=твой_api_id
 TELEGRAM_API_HASH=твой_api_hash
 TELEGRAM_PHONE=+79001234567
-NGROK_AUTHTOKEN=твой_ngrok_token
+NGROK_AUTHTOKEN=твой_ngrok_token (опционально)
 ```
 
-### 3. Запусти
+### 3. Запусти контейнеры
 
 ```bash
 docker compose up -d
 ```
 
-**Первый запуск (аутентификация в Telegram):**
+**Первый запуск - аутентификация:**
+```bash
+docker attach test-telegram-client-1
+# Введи код из Telegram
+# Нажми Ctrl+P Ctrl+Q чтобы отключиться без остановки контейнера
+```
 
-Просто закрой терминал после ввода кода - контейнер продолжит работать в фоне.
+### 4. Настрой n8n
 
-### 4. Открой n8n
+Открой http://localhost:5678 (admin / admin)
 
-http://localhost:5678 (admin / admin)
+**Настрой PostgreSQL credentials:**
+1. Settings → Credentials → New
+2. Выбери Postgres
+3. Заполни:
+   - Host: `postgres`
+   - Database: `n8n`
+   - User: `n8n`
+   - Password: `n8n`
 
-### 5. Импортируй workflows
+**Инициализируй базу данных:**
+```bash
+docker exec -i test-postgres-1 psql -U n8n -d n8n < sql/init.sql
+```
 
-Импортируй файлы из `workflows/`:
+### 5. Импортируй и настрой workflow
 
-**Базовые:**
-- `client-api-get-dialogs.json` - получить список чатов
-- `client-api-send-message.json` - отправить сообщение через webhook
-- `client-api-broadcast.json` - рассылка участникам чата
+**Импорт:**
+1. В n8n: Add workflow → Import from File
+2. Выбери `workflows/channel-auto-parser.json`
+3. Save
 
-**Для работы с комментариями:**
-- `bot-settings-manager.json` - управление настройками (шаблоны, ID канала, cooldown)
-- `channel-comments-parser.json` - парсинг комментариев конкретного поста
-- `channel-auto-parser.json` - автопарсинг всех постов канала (рекомендуется)
+**Настройка workflow:**
+1. Открой workflow "Автопарсинг всего канала"
+2. В ноде "Получить комментарии" укажи свой канал и пост (или оставь `@kira_news1/1269` для теста)
+3. Привяжи PostgreSQL credentials ко всем нодам с БД
+4. Save
 
-### 6. Настрой бота
+**Настрой шаблоны сообщений в БД:**
+```bash
+docker exec -i test-postgres-1 psql -U n8n -d n8n
+```
+```sql
+UPDATE bot_settings SET setting_value = 'Привет! 👋' WHERE setting_key = 'greeting_template';
+UPDATE bot_settings SET setting_value = 'https://example.com/register' WHERE setting_key = 'registration_link';
+UPDATE bot_settings SET setting_value = 'Какой у вас запрос на курс?' WHERE setting_key = 'cta_template';
+\q
+```
 
-1. Открой workflow **"Управление настройками бота"**
-2. В ноде **"Задать настройки"** укажи:
-   - `target_channel_id` - ID или username канала (@kira_news1)
-   - `greeting_template` - текст приветствия
-   - `registration_link` - ссылка на регистрацию
-   - `cta_template` - призыв к действию
-   - `contact_cooldown_hours` - период повторной отправки (часы)
-3. Запусти workflow - настройки сохранятся в БД
-4. Активируй workflow **"Автопарсинг всего канала"** (запускается каждые 5 мин)
+### 6. Активируй workflow
 
-**Варианты использования:**
-- `channel-auto-parser.json` - автоматически парсит все посты с комментариями (рекомендуется)
-- `channel-comments-parser.json` - парсит только один конкретный пост (нужно указать `target_post_id` в настройках)
+1. Включи переключатель **Active** в правом верхнем углу
+2. Save
+3. Workflow запускается каждые 30 секунд
+
+## Как работает
+
+1. Каждые 30 секунд workflow проверяет комментарии в указанном посте
+2. Для каждого нового комментария:
+   - Проверяет не отправляли ли уже сообщение этому пользователю (антиспам)
+   - Отправляет сообщение: приветствие + ссылка + CTA
+   - Сохраняет запись в `user_contacts` чтобы не писать повторно
 
 ## API микросервиса
 
 `http://localhost:3000`:
 
-**Базовые:**
-- `GET /dialogs` - список чатов
-- `GET /chat/:id/members` - участники чата
-- `POST /send` - отправить сообщение
+- `GET /channel/:channelId/post/:postId/comments` - получить комментарии к посту
+- `POST /send` - отправить сообщение пользователю
 
-**Комментарии:**
-- `GET /channel/:channelId/posts` - посты канала с комментариями
-- `GET /channel/:channelId/post/:postId/comments` - комментарии к конкретному посту
-
-**Примеры:**
-
+**Пример:**
 ```bash
+# Получить комментарии
+curl http://localhost:3000/channel/@kira_news1/post/1269/comments
+
 # Отправить сообщение
 curl -X POST http://localhost:3000/send \
   -H "Content-Type: application/json" \
-  -d '{"userId": "username", "message": "Hello"}'
-
-# Получить посты канала с комментариями
-curl http://localhost:3000/channel/@kira_news1/posts
-
-# Получить комментарии к конкретному посту
-curl http://localhost:3000/channel/@kira_news1/post/123/comments
+  -d '{"userId": "username", "message": "Привет!"}'
 ```
 
-## Остановка
+## Управление
 
+**Остановка:**
 ```bash
 docker compose down
+```
+
+**Логи:**
+```bash
+docker logs test-telegram-client-1 -f
+docker logs test-n8n-1 -f
+```
+
+**Очистить антиспам (для повторного теста):**
+```bash
+docker exec -i test-postgres-1 psql -U n8n -d n8n -c "DELETE FROM user_contacts;"
 ```
