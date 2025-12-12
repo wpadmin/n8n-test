@@ -194,7 +194,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ({{ $json.senderId }}, hashtext('{{ $json.channelId }}'), {{ $json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
+        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ('{{ $json.senderId }}'::bigint, hashtext('{{ $json.channelId }}'), {{ $json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
