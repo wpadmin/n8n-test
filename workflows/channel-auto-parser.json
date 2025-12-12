@@ -20,35 +20,13 @@
     },
     {
       "parameters": {
-        "url": "http://telegram-client:3000/channel/@kira_news1/posts?limit=10",
+        "url": "http://telegram-client:3000/channel/@kira_news1/post/1269/comments",
         "method": "GET",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [200, 0],
-      "id": "get-posts",
-      "name": "Получить посты с комментариями"
-    },
-    {
-      "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst posts = response.posts || [];\n\nreturn posts.map(post => ({\n  json: {\n    channelId: response.channelId,\n    postId: post.id,\n    commentsCount: post.commentsCount\n  }\n}));"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [600, 0],
-      "id": "extract-posts",
-      "name": "Извлечь ID постов"
-    },
-    {
-      "parameters": {
-        "url": "=http://telegram-client:3000/channel/{{ $json.channelId }}/post/{{ $json.postId }}/comments",
-        "method": "GET",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [800, 0],
       "id": "get-comments",
       "name": "Получить комментарии"
     },
@@ -164,29 +142,7 @@
     }
   ],
   "connections": {
-    "Каждые 5 минут": {
-      "main": [
-        [
-          {
-            "node": "Получить посты с комментариями",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Получить посты с комментариями": {
-      "main": [
-        [
-          {
-            "node": "Извлечь ID постов",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Извлечь ID постов": {
+    "Каждые 30 секунд": {
       "main": [
         [
           {
