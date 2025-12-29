@@ -1,12 +1,26 @@
 # Environment variables (содержат токены!)
 .env
 
+# Тестовое задание (приватный документ)
+Тестовое задание AI Low Code Инженер.md
+
 # n8n data (персональные данные, credentials)
 n8n_data/
 .n8n/
 
 # PostgreSQL data
 postgres_data/
+
+# Telegram sessions (важно!)
+telegram-service/sessions/
+telegram_sessions/
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
 
 # Claude Code settings
 .claude/

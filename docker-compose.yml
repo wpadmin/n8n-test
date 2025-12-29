@@ -3,9 +3,9 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: n8n
-      POSTGRES_PASSWORD: n8n
-      POSTGRES_DB: n8n
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-n8n}
+      POSTGRES_DB: ${POSTGRES_DB:-n8n}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -25,12 +25,9 @@ services:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n
-      DB_POSTGRESDB_USER: n8n
-      DB_POSTGRESDB_PASSWORD: n8n
-
-      # Telegram Bot Token
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n}
 
       # Базовая аутентификация
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -50,19 +47,37 @@ services:
       postgres:
         condition: service_healthy
 
-  ngrok:
-    image: ngrok/ngrok:latest
+  telegram-client:
+    build: ./telegram-service
     restart: unless-stopped
-    command:
-      - "http"
-      - "n8n:5678"
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     ports:
-      - "4040:4040"
-    depends_on:
-      - n8n
+      - "3000:3000"
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_PHONE: ${TELEGRAM_PHONE}
+      PORT: 3000
+      HOST: 0.0.0.0
+    volumes:
+      - telegram_sessions:/app/sessions
+    stdin_open: true
+    tty: true
+
+  # ngrok (опционально, для разработки)
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   restart: unless-stopped
+  #   command:
+  #     - "http"
+  #     - "n8n:5678"
+  #   environment:
+  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+  #   ports:
+  #     - "4040:4040"
+  #   depends_on:
+  #     - n8n
 
 volumes:
   postgres_data:
   n8n_data:
+  telegram_sessions:

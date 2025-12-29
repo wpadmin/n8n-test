@@ -1,73 +1,131 @@
-# Telegram Bot на n8n
+# Telegram Client Bot для автоматических ответов на комментарии
 
-Telegram бот с автоматическими рассылками и уведомлениями.
+Бот автоматически отправляет сообщения пользователям, которые оставили комментарии под постами в канале.
 
-## Как запустить
+## Быстрый старт
 
-### 1. Создайте бота в Telegram
+### 1. Получи Telegram API credentials
 
-1. Найдите [@BotFather](https://t.me/BotFather) в Telegram
-2. Напишите `/newbot` и следуйте инструкциям
-3. Скопируйте полученный токен
+1. Открой https://my.telegram.org
+2. API development tools → Создай приложение
+3. Скопируй API ID и API Hash
 
-### 2. Настрой проект
+### 2. Настрой окружение
 
-1. Скопируйте файл `.env.example` в `.env`
-2. Вставьте свой токен бота в `.env`
-3. Получите токен ngrok на [ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
-4. Вставьте токен ngrok в `.env`
+```bash
+cp .env.example .env
+```
 
-### 3. Запустите проект
+Заполни `.env`:
+```env
+TELEGRAM_API_ID=твой_api_id
+TELEGRAM_API_HASH=твой_api_hash
+TELEGRAM_PHONE=+79001234567
+NGROK_AUTHTOKEN=твой_ngrok_token (опционально)
+```
+
+### 3. Запусти контейнеры
 
 ```bash
 docker compose up -d
 ```
 
-### 4. Откройте n8n
+**Первый запуск - аутентификация:**
+```bash
+docker attach n8n-test-telegram-client-1
+# Введи код из Telegram
+# Нажми Ctrl+P Ctrl+Q чтобы отключиться без остановки контейнера
+```
 
-Перейди по адресу: [http://localhost:5678](http://localhost:5678)
+### 4. Настрой n8n
 
-**Логин:** admin
-**Пароль:** admin
+Открой http://localhost:5678 (admin / admin)
 
-### 5. Импортируйте workflows
+**Настрой PostgreSQL credentials:**
+1. Settings → Credentials → New
+2. Выбери Postgres
+3. Заполни:
+   - Host: `postgres`
+   - Database: `n8n`
+   - User: `n8n`
+   - Password: `n8n`
 
-1. В n8n нажмите **Settings** (шестерёнка справа вверху)
-2. Выберите **Import from File**
-3. Загрузите все файлы из папки `workflows/`
-4. В каждом workflow:
-   - Откройте ноду Telegram
-   - Нажмите **Credentials** → **Create New**
-   - Вставьте свой токен бота
-   - Сохраните
+**Инициализируй базу данных:**
+```bash
+docker exec -i n8n-test-postgres-1 psql -U n8n -d n8n < sql/init.sql
+```
 
-## Как пользоваться
+### 5. Импортируй и настрой workflow
 
-### Регистрация пользователей
+**Импорт:**
+1. В n8n: Add workflow → Import from File
+2. Выбери `workflows/channel-auto-parser.json`
+3. Save
 
-1. Напишите боту `/start` в Telegram
-2. Бот зарегистрирует тебя и ответит приветствием
+**Настройка workflow:**
+1. Открой workflow "Автопарсинг всего канала"
+2. В ноде "Получить комментарии" укажи свой канал и пост (или оставь `@kira_news1/1269` для теста)
+3. Привяжи PostgreSQL credentials ко всем нодам с БД
+4. Save
 
-### Запуск рассылки
+**Настрой шаблоны сообщений:**
 
-1. В n8n откройте workflow **2-forma-zapuska-rassylki**
-2. Нажмите на ноду **Form Trigger**
-3. Скопируйте **Test URL** и откройте в браузере
-4. Выберите аудиторию и запустите
-5. Рассылка запустится автоматически
+1. Импортируй `workflows/bot-settings-manager.json`
+2. Открой workflow "Управление настройками бота"
+3. В ноде "Задать настройки" измени значения:
+   - `greeting_template` - текст приветствия
+   - `registration_link` - ссылка на регистрацию
+   - `cta_template` - призыв к действию
+   - `contact_cooldown_hours` - часы между повторными сообщениями
+4. Нажми "Execute Workflow" - настройки сохранятся в БД
+5. Готово! Теперь бот будет использовать эти шаблоны
 
-### Остановка проекта
+### 6. Активируй workflow
 
+1. Включи переключатель **Active** в правом верхнем углу
+2. Save
+3. Workflow запускается каждые 30 секунд
+
+## Как работает
+
+1. Каждые 30 секунд workflow проверяет комментарии в указанном посте
+2. Для каждого нового комментария:
+   - Проверяет не отправляли ли уже сообщение этому пользователю (антиспам)
+   - Отправляет сообщение: приветствие + ссылка + CTA
+   - Сохраняет запись в `user_contacts` чтобы не писать повторно
+
+## API микросервиса
+
+`http://localhost:3000`:
+
+- `GET /channel/:channelId/post/:postId/comments` - получить комментарии к посту
+- `POST /send` - отправить сообщение пользователю
+
+**Пример:**
+```bash
+# Получить комментарии
+curl http://localhost:3000/channel/@kira_news1/post/1269/comments
+
+# Отправить сообщение
+curl -X POST http://localhost:3000/send \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "username", "message": "Привет!"}'
+```
+
+## Управление
+
+**Остановка:**
 ```bash
 docker compose down
 ```
 
-## Структура базы данных
+**Логи:**
+```bash
+docker logs n8n-test-telegram-client-1 -f
+docker logs n8n-test-n8n-1 -f
+```
 
-**users** - зарегистрированные пользователи
-**messages** - история отправленных сообщений
-**message_queue** - очередь с повторными попытками
-
----
-
-Подробная техническая документация в файле `Диаграмма n8n.drawio.pdf`
+**Очистить антиспам (для повторного теста):**
+```bash
+docker exec -i n8n-test-postgres-1 psql -U n8n -d n8n -c "DELETE FROM user_contacts;"
+```

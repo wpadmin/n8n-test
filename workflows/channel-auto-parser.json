@@ -1,0 +1,293 @@
+{
+  "name": "Автопарсинг всего канала",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "schedule-trigger",
+      "name": "Каждые 30 секунд"
+    },
+    {
+      "parameters": {
+        "url": "http://telegram-client:3000/channel/@kira_news1/post/1269/comments",
+        "method": "GET",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 0],
+      "id": "get-comments",
+      "name": "Получить комментарии"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\n// Получаем первые 3 комментария чтобы не спамить\nconst limitedComments = validComments.slice(0, 3);\n\nreturn limitedComments.map(comment => ({\n  json: {\n    senderId: String(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: String(response.channelId),\n    postId: Number(response.postId)\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 0],
+      "id": "process-comments",
+      "name": "Обработать комментарии"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT user_chat_id FROM user_contacts WHERE user_chat_id = '{{ $json.senderId }}'::bigint AND channel_id = hashtext('{{ $json.channelId }}')::bigint AND post_id = {{ $json.postId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1200, 0],
+      "id": "check-sent",
+      "name": "Проверить отправлено"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.user_chat_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1400, 0],
+      "id": "filter-new",
+      "name": "Только новые"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT setting_key, setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1600, -100],
+      "id": "get-templates",
+      "name": "Получить шаблоны"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "senderId",
+              "name": "senderId",
+              "value": "={{ $('Обработать комментарии').item.json.senderId }}",
+              "type": "string"
+            },
+            {
+              "id": "channelId",
+              "name": "channelId",
+              "value": "={{ $('Обработать комментарии').item.json.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "postId",
+              "name": "postId",
+              "value": "={{ $('Обработать комментарии').item.json.postId }}",
+              "type": "number"
+            },
+            {
+              "id": "greeting",
+              "name": "greeting",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'greeting_template')?.json.setting_value }}",
+              "type": "string"
+            },
+            {
+              "id": "link",
+              "name": "link",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'registration_link')?.json.setting_value }}",
+              "type": "string"
+            },
+            {
+              "id": "cta",
+              "name": "cta",
+              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'cta_template')?.json.setting_value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1800, -100],
+      "id": "prepare-message",
+      "name": "Подготовить сообщение"
+    },
+    {
+      "parameters": {
+        "url": "http://telegram-client:3000/send",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"userId\": $json.senderId,\n  \"message\": $json.greeting + \"\\n\\n\" + $json.link + \"\\n\\n\" + $json.cta\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, -100],
+      "id": "send-message",
+      "name": "Отправить сообщение"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ('{{ $('Подготовить сообщение').item.json.senderId }}'::bigint, hashtext('{{ $('Подготовить сообщение').item.json.channelId }}')::bigint, {{ $('Подготовить сообщение').item.json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2200, -100],
+      "id": "update-contact",
+      "name": "Обновить контакт"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2400, -100],
+      "id": "wait-node",
+      "name": "Пауза 1 сек"
+    }
+  ],
+  "connections": {
+    "Каждые 30 секунд": {
+      "main": [
+        [
+          {
+            "node": "Получить комментарии",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Получить комментарии": {
+      "main": [
+        [
+          {
+            "node": "Обработать комментарии",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Обработать комментарии": {
+      "main": [
+        [
+          {
+            "node": "Проверить отправлено",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверить отправлено": {
+      "main": [
+        [
+          {
+            "node": "Только новые",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Только новые": {
+      "main": [
+        [
+          {
+            "node": "Получить шаблоны",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Получить шаблоны": {
+      "main": [
+        [
+          {
+            "node": "Подготовить сообщение",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовить сообщение": {
+      "main": [
+        [
+          {
+            "node": "Отправить сообщение",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Отправить сообщение": {
+      "main": [
+        [
+          {
+            "node": "Обновить контакт",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Обновить контакт": {
+      "main": [
+        [
+          {
+            "node": "Пауза 1 сек",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
