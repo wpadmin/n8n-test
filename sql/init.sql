@@ -1,17 +1,23 @@
--- Настройки бота (шаблоны сообщений, периоды повторной отправки)
+-- Настройки бота (одна строка, каждая настройка — колонка)
 CREATE TABLE IF NOT EXISTS bot_settings (
     id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value TEXT NOT NULL,
-    description TEXT,
+    target_channel_id TEXT NOT NULL DEFAULT '@kira_news1',
+    target_post_id INTEGER NOT NULL DEFAULT 1,
+    greeting_template TEXT NOT NULL DEFAULT 'Привет! 👋',
+    registration_link TEXT NOT NULL DEFAULT 'https://example.com/register',
+    cta_template TEXT NOT NULL DEFAULT 'Какой у вас запрос на курс?',
+    contact_cooldown_hours INTEGER NOT NULL DEFAULT 24,
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Вставляем дефолтную строку если таблица пустая
+INSERT INTO bot_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 -- История контактов с пользователями (антиспам)
 CREATE TABLE IF NOT EXISTS user_contacts (
     id SERIAL PRIMARY KEY,
     user_chat_id BIGINT NOT NULL,
-    channel_id BIGINT NOT NULL,
+    channel_id TEXT NOT NULL,
     post_id BIGINT NOT NULL,
     last_contacted_at TIMESTAMP DEFAULT NOW(),
     contact_type VARCHAR(50) DEFAULT 'comment_reply',
@@ -21,11 +27,3 @@ CREATE TABLE IF NOT EXISTS user_contacts (
 -- Индексы для производительности
 CREATE INDEX IF NOT EXISTS idx_user_contacts_lookup ON user_contacts(user_chat_id, channel_id, post_id);
 CREATE INDEX IF NOT EXISTS idx_user_contacts_time ON user_contacts(last_contacted_at);
-
--- Дефолтные настройки
-INSERT INTO bot_settings (setting_key, setting_value, description) VALUES
-    ('greeting_template', 'Привет! 👋', 'Приветствие в начале сообщения'),
-    ('registration_link', 'https://example.com/register', 'Ссылка на регистрацию'),
-    ('cta_template', 'Какой у вас запрос на курс?', 'Call to Action вопрос'),
-    ('contact_cooldown_hours', '24', 'Период в часах, через который можно писать повторно')
-ON CONFLICT (setting_key) DO NOTHING;

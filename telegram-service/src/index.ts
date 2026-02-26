@@ -21,13 +21,9 @@ const telegramService = new TelegramService(
   process.env.TELEGRAM_PHONE!
 );
 
-// Инициализация при старте
-let isInitialized = false;
-
 async function initializeTelegram() {
   try {
     await telegramService.initialize();
-    isInitialized = true;
     console.log('Telegram service initialized successfully');
   } catch (error) {
     console.error('Failed to initialize Telegram service:', error);
@@ -35,85 +31,71 @@ async function initializeTelegram() {
   }
 }
 
+// Хелпер для парсинга limit из query
+function parseLimit(raw: string | undefined, defaultVal: number, max: number): number {
+  return Math.min(Math.max(parseInt(raw ?? '') || defaultVal, 1), max);
+}
+
+// Глобальный обработчик ошибок
+fastify.setErrorHandler((error: { statusCode?: number; message: string }, request: any, reply: any) => {
+  request.log.error(error);
+  reply.code(error.statusCode ?? 500).send({
+    error: error.message,
+  });
+});
+
 // Health check
-fastify.get('/health', async (request, reply) => {
-  return { status: 'ok', initialized: isInitialized };
+fastify.get('/health', async () => {
+  const connected = await telegramService.isConnected();
+  return { status: 'ok', connected };
 });
 
 // Проверка статуса подключения
-fastify.get('/status', async (request, reply) => {
-  try {
-    const connected = await telegramService.isConnected();
-    return {
-      connected,
-      initialized: isInitialized,
-    };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
-  }
+fastify.get('/status', async () => {
+  const connected = await telegramService.isConnected();
+  return { connected };
 });
 
 // Получить список диалогов
 fastify.get<{
   Querystring: { limit?: string };
-}>('/dialogs', async (request, reply) => {
-  try {
-    const limit = request.query.limit ? parseInt(request.query.limit) : 100;
-    const dialogs = await telegramService.getDialogs(limit);
-    return { dialogs };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
-  }
+}>('/dialogs', async (request) => {
+  const limit = parseLimit(request.query.limit, 100, 500);
+  const dialogs = await telegramService.getDialogs(limit);
+  return { dialogs };
 });
 
 // Получить участников чата
 fastify.get<{
   Params: { chatId: string };
   Querystring: { limit?: string };
-}>('/chat/:chatId/members', async (request, reply) => {
-  try {
-    const { chatId } = request.params;
-    const limit = request.query.limit ? parseInt(request.query.limit) : 100;
-    const members = await telegramService.getChatMembers(chatId, limit);
-    return { members };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
-  }
+}>('/chat/:chatId/members', async (request) => {
+  const { chatId } = request.params;
+  const limit = parseLimit(request.query.limit, 100, 500);
+  const members = await telegramService.getChatMembers(chatId, limit);
+  return { members };
 });
 
 // Получить сообщения из чата
 fastify.get<{
   Params: { chatId: string };
   Querystring: { limit?: string };
-}>('/chat/:chatId/messages', async (request, reply) => {
-  try {
-    const { chatId } = request.params;
-    const limit = request.query.limit ? parseInt(request.query.limit) : 100;
-    const messages = await telegramService.getMessages(chatId, limit);
-    return { messages };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
-  }
+}>('/chat/:chatId/messages', async (request) => {
+  const { chatId } = request.params;
+  const limit = parseLimit(request.query.limit, 100, 500);
+  const messages = await telegramService.getMessages(chatId, limit);
+  return { messages };
 });
 
 // Получить последние посты канала с комментариями
 fastify.get<{
   Params: { channelId: string };
   Querystring: { limit?: string };
-}>('/channel/:channelId/posts', async (request, reply) => {
-  try {
-    const { channelId } = request.params;
-    const limit = request.query.limit ? parseInt(request.query.limit) : 20;
-
-    const posts = await telegramService.getChannelPostsWithComments(channelId, limit);
-    return {
-      channelId,
-      count: posts.length,
-      posts
-    };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
-  }
+}>('/channel/:channelId/posts', async (request) => {
+  const { channelId } = request.params;
+  const limit = parseLimit(request.query.limit, 20, 100);
+  const posts = await telegramService.getChannelPostsWithComments(channelId, limit);
+  return { channelId, count: posts.length, posts };
 });
 
 // Получить комментарии к посту в канале
@@ -121,45 +103,30 @@ fastify.get<{
   Params: { channelId: string; postId: string };
   Querystring: { limit?: string };
 }>('/channel/:channelId/post/:postId/comments', async (request, reply) => {
-  try {
-    const { channelId, postId } = request.params;
-    const limit = request.query.limit ? parseInt(request.query.limit) : 100;
+  const { channelId, postId } = request.params;
+  const limit = parseLimit(request.query.limit, 100, 500);
 
-    const postIdNum = parseInt(postId);
-    if (isNaN(postIdNum)) {
-      reply.code(400).send({ error: 'postId must be a number' });
-      return;
-    }
-
-    const comments = await telegramService.getPostComments(channelId, postIdNum, limit);
-    return {
-      channelId,
-      postId: postIdNum,
-      count: comments.length,
-      comments
-    };
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
+  const postIdNum = parseInt(postId);
+  if (isNaN(postIdNum)) {
+    return reply.code(400).send({ error: 'postId must be a number' });
   }
+
+  const comments = await telegramService.getPostComments(channelId, postIdNum, limit);
+  return { channelId, postId: postIdNum, count: comments.length, comments };
 });
 
 // Отправить сообщение
 fastify.post<{
   Body: { userId: string; message: string };
 }>('/send', async (request, reply) => {
-  try {
-    const { userId, message } = request.body;
+  const { userId, message } = request.body;
 
-    if (!userId || !message) {
-      reply.code(400).send({ error: 'userId and message are required' });
-      return;
-    }
-
-    const result = await telegramService.sendMessage(userId, message);
-    return result;
-  } catch (error: any) {
-    reply.code(500).send({ error: error.message });
+  if (!userId || !message) {
+    return reply.code(400).send({ error: 'userId and message are required' });
   }
+
+  const result = await telegramService.sendMessage(userId, message);
+  return result;
 });
 
 // Graceful shutdown
@@ -180,10 +147,8 @@ process.on('SIGINT', async () => {
 // Запуск сервера
 const start = async () => {
   try {
-    // Инициализируем Telegram клиент
     await initializeTelegram();
 
-    // Запускаем HTTP сервер
     const port = parseInt(process.env.PORT || '3000');
     const host = process.env.HOST || '0.0.0.0';
 

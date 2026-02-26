@@ -7,23 +7,30 @@
       "typeVersion": 1,
       "position": [0, 0],
       "id": "manual-trigger",
-      "name": "Manual Trigger"
+      "name": "Manual Trigger",
+      "notes": "Ручной запуск — нажми 'Execute Workflow' чтобы сохранить настройки в БД"
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "channel_id",
+              "id": "id",
+              "name": "id",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "channel",
               "name": "target_channel_id",
               "value": "@kira_news1",
               "type": "string"
             },
             {
-              "id": "post_id",
+              "id": "post",
               "name": "target_post_id",
-              "value": "1",
-              "type": "string"
+              "value": 1,
+              "type": "number"
             },
             {
               "id": "greeting",
@@ -46,8 +53,8 @@
             {
               "id": "cooldown",
               "name": "contact_cooldown_hours",
-              "value": "24",
-              "type": "string"
+              "value": 24,
+              "type": "number"
             }
           ]
         },
@@ -57,41 +64,58 @@
       "typeVersion": 3.4,
       "position": [200, 0],
       "id": "set-settings",
-      "name": "Задать настройки"
+      "name": "Задать настройки",
+      "notes": "Все настройки бота. Меняй значения и запускай workflow"
     },
     {
       "parameters": {
-        "jsCode": "const settings = $input.first().json;\n\nreturn Object.entries(settings).map(([key, value]) => ({\n  json: {\n    setting_key: key,\n    setting_value: value.toString()\n  }\n}));"
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "bot_settings",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["id"],
+          "value": null
+        },
+        "options": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
       "position": [400, 0],
-      "id": "format-settings",
-      "name": "Форматировать"
+      "id": "save-settings",
+      "name": "Сохранить в БД",
+      "notes": "Встроенный Insert or Update — матчит по id, обновляет все колонки"
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "=INSERT INTO bot_settings (setting_key, setting_value) \nVALUES ('{{ $json.setting_key }}', '{{ $json.setting_value }}')\nON CONFLICT (setting_key) \nDO UPDATE SET setting_value = '{{ $json.setting_value }}', updated_at = NOW()",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "bot_settings",
+          "mode": "list"
+        },
+        "returnAll": true,
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [600, 0],
-      "id": "save-settings",
-      "name": "Сохранить в БД"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT * FROM bot_settings ORDER BY setting_key",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [800, 0],
       "id": "verify-settings",
-      "name": "Проверить сохранение"
+      "name": "Проверить сохранение",
+      "notes": "Встроенный Select — показывает результат"
     }
   ],
   "connections": {
@@ -99,9 +123,6 @@
       "main": [[{"node": "Задать настройки", "type": "main", "index": 0}]]
     },
     "Задать настройки": {
-      "main": [[{"node": "Форматировать", "type": "main", "index": 0}]]
-    },
-    "Форматировать": {
       "main": [[{"node": "Сохранить в БД", "type": "main", "index": 0}]]
     },
     "Сохранить в БД": {

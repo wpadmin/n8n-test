@@ -16,41 +16,56 @@
       "typeVersion": 1.2,
       "position": [0, 0],
       "id": "schedule-trigger",
-      "name": "Каждые 30 секунд"
+      "name": "Каждые 30 секунд",
+      "notes": "Запускает workflow каждые 30 секунд"
     },
     {
       "parameters": {
-        "url": "http://telegram-client:3000/channel/@kira_news1/post/1269/comments",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "bot_settings",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [200, 0],
+      "id": "get-settings",
+      "name": "Загрузить настройки",
+      "notes": "Встроенный Select — одна строка со всеми настройками"
+    },
+    {
+      "parameters": {
+        "url": "=http://telegram-client:3000/channel/{{ $json.target_channel_id }}/post/{{ $json.target_post_id }}/comments",
         "method": "GET",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [200, 0],
+      "position": [400, 0],
       "id": "get-comments",
-      "name": "Получить комментарии"
+      "name": "Получить комментарии",
+      "notes": "HTTP GET к Telegram Client"
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst comments = response.comments || [];\n\nconst validComments = comments.filter(c => c.senderId && c.message);\n\n// Получаем первые 3 комментария чтобы не спамить\nconst limitedComments = validComments.slice(0, 3);\n\nreturn limitedComments.map(comment => ({\n  json: {\n    senderId: String(comment.senderId),\n    username: comment.senderUsername,\n    firstName: comment.senderFirstName,\n    message: comment.message,\n    channelId: String(response.channelId),\n    postId: Number(response.postId)\n  }\n}));"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1000, 0],
-      "id": "process-comments",
-      "name": "Обработать комментарии"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "=SELECT user_chat_id FROM user_contacts WHERE user_chat_id = '{{ $json.senderId }}'::bigint AND channel_id = hashtext('{{ $json.channelId }}')::bigint AND post_id = {{ $json.postId }}",
+        "fieldToSplitOut": "comments",
         "options": {}
       },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [1200, 0],
-      "id": "check-sent",
-      "name": "Проверить отправлено"
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [600, 0],
+      "id": "split-comments",
+      "name": "Разбить комментарии",
+      "notes": "Split Out — массив comments → отдельные items"
     },
     {
       "parameters": {
@@ -62,12 +77,22 @@
           },
           "conditions": [
             {
-              "id": "condition1",
-              "leftValue": "={{ $json.user_chat_id }}",
+              "id": "has-sender",
+              "leftValue": "={{ $json.senderId }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "notExists",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-message",
+              "leftValue": "={{ $json.message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
                 "singleValue": true
               }
             }
@@ -78,21 +103,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1400, 0],
-      "id": "filter-new",
-      "name": "Только новые"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT setting_key, setting_value FROM bot_settings WHERE setting_key IN ('greeting_template', 'registration_link', 'cta_template')",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [1600, -100],
-      "id": "get-templates",
-      "name": "Получить шаблоны"
+      "position": [800, 0],
+      "id": "filter-valid",
+      "name": "Есть отправитель и текст?",
+      "notes": "Только комментарии с senderId и message"
     },
     {
       "parameters": {
@@ -101,37 +115,123 @@
             {
               "id": "senderId",
               "name": "senderId",
-              "value": "={{ $('Обработать комментарии').item.json.senderId }}",
+              "value": "={{ String($json.senderId) }}",
+              "type": "string"
+            },
+            {
+              "id": "username",
+              "name": "username",
+              "value": "={{ $json.senderUsername }}",
+              "type": "string"
+            },
+            {
+              "id": "firstName",
+              "name": "firstName",
+              "value": "={{ $json.senderFirstName }}",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "={{ $json.message }}",
               "type": "string"
             },
             {
               "id": "channelId",
               "name": "channelId",
-              "value": "={{ $('Обработать комментарии').item.json.channelId }}",
+              "value": "={{ String($('Получить комментарии').first().json.channelId) }}",
               "type": "string"
             },
             {
               "id": "postId",
               "name": "postId",
-              "value": "={{ $('Обработать комментарии').item.json.postId }}",
+              "value": "={{ $('Получить комментарии').first().json.postId }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 0],
+      "id": "map-fields",
+      "name": "Подготовить поля",
+      "notes": "Set — маппит поля + добавляет channelId и postId"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "user_contacts",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1000, 200],
+      "id": "load-contacts",
+      "name": "Загрузить контакты",
+      "notes": "Встроенный Select — все записи из user_contacts"
+    },
+    {
+      "parameters": {
+        "mode": "combineBySql",
+        "combineBySql": "SELECT * FROM input1 WHERE input1.senderId NOT IN (SELECT CAST(input2.user_chat_id AS TEXT) FROM input2)"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [1200, 0],
+      "id": "filter-new",
+      "name": "Только новые",
+      "notes": "Merge SQL — оставляет комментаторов, которых НЕТ в user_contacts"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "senderId",
+              "name": "senderId",
+              "value": "={{ $json.senderId }}",
+              "type": "string"
+            },
+            {
+              "id": "channelId",
+              "name": "channelId",
+              "value": "={{ $json.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "postId",
+              "name": "postId",
+              "value": "={{ $json.postId }}",
               "type": "number"
             },
             {
               "id": "greeting",
               "name": "greeting",
-              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'greeting_template')?.json.setting_value }}",
+              "value": "={{ $('Загрузить настройки').first().json.greeting_template }}",
               "type": "string"
             },
             {
               "id": "link",
               "name": "link",
-              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'registration_link')?.json.setting_value }}",
+              "value": "={{ $('Загрузить настройки').first().json.registration_link }}",
               "type": "string"
             },
             {
               "id": "cta",
               "name": "cta",
-              "value": "={{ $('Получить шаблоны').all().find(x => x.json.setting_key === 'cta_template')?.json.setting_value }}",
+              "value": "={{ $('Загрузить настройки').first().json.cta_template }}",
               "type": "string"
             }
           ]
@@ -140,9 +240,10 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1800, -100],
+      "position": [1400, 0],
       "id": "prepare-message",
-      "name": "Подготовить сообщение"
+      "name": "Подготовить сообщение",
+      "notes": "Собирает senderId + шаблоны из настроек"
     },
     {
       "parameters": {
@@ -155,21 +256,76 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2000, -100],
+      "position": [1600, 0],
       "id": "send-message",
-      "name": "Отправить сообщение"
+      "name": "Отправить сообщение",
+      "notes": "ЛС через Telegram Client"
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "=INSERT INTO user_contacts (user_chat_id, channel_id, post_id, last_contacted_at)\nVALUES ('{{ $('Подготовить сообщение').item.json.senderId }}'::bigint, hashtext('{{ $('Подготовить сообщение').item.json.channelId }}')::bigint, {{ $('Подготовить сообщение').item.json.postId }}, NOW())\nON CONFLICT (user_chat_id, channel_id, post_id) \nDO UPDATE SET last_contacted_at = NOW()",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "user_chat_id",
+              "name": "user_chat_id",
+              "value": "={{ $('Подготовить сообщение').item.json.senderId }}",
+              "type": "number"
+            },
+            {
+              "id": "channel_id",
+              "name": "channel_id",
+              "value": "={{ $('Подготовить сообщение').item.json.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "post_id",
+              "name": "post_id",
+              "value": "={{ $('Подготовить сообщение').item.json.postId }}",
+              "type": "number"
+            },
+            {
+              "id": "last_contacted_at",
+              "name": "last_contacted_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1800, 0],
+      "id": "prepare-contact",
+      "name": "Подготовить контакт",
+      "notes": "Set — данные для записи в user_contacts"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "user_contacts",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["user_chat_id", "channel_id", "post_id"],
+          "value": null
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2200, -100],
+      "position": [2000, 0],
       "id": "update-contact",
-      "name": "Обновить контакт"
+      "name": "Обновить контакт",
+      "notes": "Встроенный Upsert — записывает в user_contacts"
     },
     {
       "parameters": {
@@ -178,110 +334,75 @@
       },
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2400, -100],
+      "position": [2200, 0],
       "id": "wait-node",
-      "name": "Пауза 1 сек"
+      "name": "Пауза 1 сек",
+      "notes": "Антиспам задержка"
     }
   ],
   "connections": {
     "Каждые 30 секунд": {
       "main": [
+        [{"node": "Загрузить настройки", "type": "main", "index": 0}]
+      ]
+    },
+    "Загрузить настройки": {
+      "main": [
         [
-          {
-            "node": "Получить комментарии",
-            "type": "main",
-            "index": 0
-          }
+          {"node": "Получить комментарии", "type": "main", "index": 0},
+          {"node": "Загрузить контакты", "type": "main", "index": 0}
         ]
       ]
     },
     "Получить комментарии": {
       "main": [
-        [
-          {
-            "node": "Обработать комментарии",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Разбить комментарии", "type": "main", "index": 0}]
       ]
     },
-    "Обработать комментарии": {
+    "Разбить комментарии": {
       "main": [
-        [
-          {
-            "node": "Проверить отправлено",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Есть отправитель и текст?", "type": "main", "index": 0}]
       ]
     },
-    "Проверить отправлено": {
+    "Есть отправитель и текст?": {
       "main": [
-        [
-          {
-            "node": "Только новые",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Подготовить поля", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Подготовить поля": {
+      "main": [
+        [{"node": "Только новые", "type": "main", "index": 0}]
+      ]
+    },
+    "Загрузить контакты": {
+      "main": [
+        [{"node": "Только новые", "type": "main", "index": 1}]
       ]
     },
     "Только новые": {
       "main": [
-        [
-          {
-            "node": "Получить шаблоны",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Получить шаблоны": {
-      "main": [
-        [
-          {
-            "node": "Подготовить сообщение",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Подготовить сообщение", "type": "main", "index": 0}]
       ]
     },
     "Подготовить сообщение": {
       "main": [
-        [
-          {
-            "node": "Отправить сообщение",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Отправить сообщение", "type": "main", "index": 0}]
       ]
     },
     "Отправить сообщение": {
       "main": [
-        [
-          {
-            "node": "Обновить контакт",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Подготовить контакт", "type": "main", "index": 0}]
+      ]
+    },
+    "Подготовить контакт": {
+      "main": [
+        [{"node": "Обновить контакт", "type": "main", "index": 0}]
       ]
     },
     "Обновить контакт": {
       "main": [
-        [
-          {
-            "node": "Пауза 1 сек",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Пауза 1 сек", "type": "main", "index": 0}]
       ]
     }
   },

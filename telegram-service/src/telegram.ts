@@ -1,4 +1,4 @@
-import { TelegramClient } from 'telegram';
+import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -35,9 +35,21 @@ export class TelegramService {
 
   constructor(apiId: string, apiHash: string, phoneNumber: string) {
     this.apiId = parseInt(apiId);
+    if (isNaN(this.apiId)) {
+      throw new Error('TELEGRAM_API_ID must be a valid number');
+    }
     this.apiHash = apiHash;
     this.phoneNumber = phoneNumber;
-    this.sessionFile = path.join(SESSION_DIR, `${phoneNumber}.session`);
+
+    // Sanitize phone number for safe file path (only digits and +)
+    const safePhone = phoneNumber.replace(/[^+\d]/g, '');
+    this.sessionFile = path.join(SESSION_DIR, `${safePhone}.session`);
+
+    // Verify the resolved path is inside SESSION_DIR
+    const resolved = path.resolve(this.sessionFile);
+    if (!resolved.startsWith(path.resolve(SESSION_DIR))) {
+      throw new Error('Invalid phone number for session path');
+    }
   }
 
   /**
@@ -88,8 +100,8 @@ export class TelegramService {
     console.log('Successfully connected to Telegram!');
 
     // Сохраняем сессию
-    const session = this.client.session.save() as unknown as string;
-    this.saveSession(session);
+    const session = this.client.session.save();
+    this.saveSession(String(session));
   }
 
   /**
@@ -184,7 +196,6 @@ export class TelegramService {
     if (!this.client) throw new Error('Client not initialized');
 
     try {
-      const { Api } = require('telegram');
       const messages = await this.client.getMessages(channelId, { limit });
 
       // Фильтруем только посты с включенными комментариями
@@ -210,8 +221,6 @@ export class TelegramService {
     if (!this.client) throw new Error('Client not initialized');
 
     try {
-      const { Api } = require('telegram');
-
       const result = await this.client.invoke(
         new Api.messages.GetReplies({
           peer: channelId,
@@ -222,22 +231,30 @@ export class TelegramService {
           limit: limit,
           maxId: 0,
           minId: 0,
-          hash: BigInt(0),
+          hash: 0 as any,
         })
       );
 
-      if (!result.messages) {
+      if (!('messages' in result)) {
         return [];
       }
 
-      return result.messages.map((msg: any) => ({
-        id: msg.id,
-        message: msg.message,
-        senderId: msg.fromId?.userId?.toString() || msg.peerId?.userId?.toString(),
-        date: msg.date,
-        senderUsername: msg.from?.username,
-        senderFirstName: msg.from?.firstName,
-      }));
+      const usersMap = new Map(
+        ((result as any).users ?? []).map((u: any) => [u.id?.toString(), u])
+      );
+
+      return (result as any).messages.map((msg: any) => {
+        const senderId = msg.fromId?.userId?.toString() || msg.peerId?.userId?.toString();
+        const sender = senderId ? usersMap.get(senderId) : undefined;
+        return {
+          id: msg.id,
+          message: msg.message,
+          senderId,
+          date: msg.date,
+          senderUsername: (sender as any)?.username,
+          senderFirstName: (sender as any)?.firstName,
+        };
+      });
     } catch (error: any) {
       throw new Error(`Failed to get post comments: ${error.message}`);
     }
